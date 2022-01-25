@@ -1,0 +1,10 @@
+---
+- name: Run ansible playbook
+  hosts: localhost
+
+  tasks:
+    - name: Create a directory if it does not exist
+      ansible.builtin.file:
+        path: /opt/some_directory
+        state: directory
+        mode: "0755"
