@@ -1,0 +1,130 @@
+name: Podman Image CI
+on: [push]
+
+env:
+  TAG_NAME: latest
+  IMAGE_NAME: quay.io/${{ secrets.PODMAN_USERNAME }}/ansible
+  ARTIFACT_NAME: ansible-podman-image
+  TRIVY_VERSION: 0.22.0
+  TRIVY_REPORT_FILE_PATH: pages/tools/ansible
+  GIT_REPO_NAME: result-of-vulneralibity-scan
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+
+      - name: Build image
+        run: podman build --file ./Containerfile -t ${{ env.IMAGE_NAME }}:${{ env.TAG_NAME }} .
+
+      - name: Export image
+        run: podman save --quiet -o /tmp/${{ env.ARTIFACT_NAME }}.tar ${{ env.IMAGE_NAME }}:${{ env.TAG_NAME }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: /tmp/${{ env.ARTIFACT_NAME }}.tar
+
+  test:
+    needs: build
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: /tmp
+
+      - name: Load image
+        run: |
+          podman load --input /tmp/${{ env.ARTIFACT_NAME }}.tar
+
+      - name: Run test
+        run: |
+          podman run --rm --name ansible-test -v $(pwd)/test/:/tmp/ \
+          ${{ env.IMAGE_NAME }}:${{ env.TAG_NAME }} \
+          /bin/sh -c "sh /tmp/ansible-test.sh"
+
+  vulnerability-scan:
+    needs: test
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+
+      - name: Check out result-of-vulneralibity-scan repository code
+        uses: actions/checkout@v2
+        with:
+          repository: "devdarkdevops/${{ env.GIT_REPO_NAME }}"
+          path: ${{ env.GIT_REPO_NAME }}
+          fetch-depth: "1"
+          ssh-key: "${{ secrets.SSH_PRIVATE_KEY }}"
+
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: /tmp
+
+      - name: Load image
+        run: |
+          podman load --input /tmp/${{ env.ARTIFACT_NAME }}.tar
+
+      - name: Install trivy
+        run: |
+          wget https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.deb
+          sudo dpkg -i trivy_${TRIVY_VERSION}_Linux-64bit.deb
+
+      - name: Run Trivy vulnerability scanner
+        run: |
+          trivy image --format template --template "@contrib/html.tpl" -o ansible-podman-${{ env.TAG_NAME }}.html ${{ env.IMAGE_NAME }}:${{ env.TAG_NAME }}
+
+      - name: Push
+        run: |
+          TRIVY_REPORT_FILE_NAME=$(ls ansible-podman-*)
+
+          if [[ ! -f "${{ env.GIT_REPO_NAME }}/${TRIVY_REPORT_FILE_PATH}/ansible-podman-${{ env.TAG_NAME }}.html" ]]; then
+            INSERT_LINE_NUMBER=$(grep -no "Ansible-Ipsun" ./${{ env.GIT_REPO_NAME }}/index.html | cut -d':' -f1)
+            TRIVY_REPORT_LINK="<li><a href=\"${TRIVY_REPORT_FILE_PATH}/${TRIVY_REPORT_FILE_NAME}\">${TRIVY_REPORT_FILE_NAME}</a></li>"
+
+            sed -i "${INSERT_LINE_NUMBER} i ${TRIVY_REPORT_LINK}" ./${{ env.GIT_REPO_NAME }}/index.html
+          fi
+
+          cp -L ./${TRIVY_REPORT_FILE_NAME} ./${{ env.GIT_REPO_NAME }}/${TRIVY_REPORT_FILE_PATH}
+
+          cd ${{ env.GIT_REPO_NAME }}
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add --all
+          git commit -m "Add ${TRIVY_REPORT_FILE_NAME} report file"
+          git push
+
+  deploy:
+    needs: vulnerability-Scan
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Log in to Quay.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ secrets.PODMAN_USERNAME }}
+          password: ${{ secrets.PODMAN_PASSWORD }}
+          registry: quay.io
+
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: /tmp
+
+      - name: Load image
+        run: |
+          podman load --input /tmp/${{ env.ARTIFACT_NAME }}.tar
+
+      - name: Upload image
+        run: podman push ${{ env.IMAGE_NAME }}:${{ env.TAG_NAME }}
