@@ -2,7 +2,7 @@ name: Podman Image CI
 on: [push]
 
 env:
-  TAG_NAME: latest
+  TAG_NAME: alpine3.15.0-py3.9-ansible5.2.0
   IMAGE_NAME: quay.io/${{ secrets.PODMAN_USERNAME }}/ansible
   ARTIFACT_NAME: ansible-podman-image
   TRIVY_VERSION: 0.22.0
@@ -74,7 +74,7 @@ jobs:
 
       - name: Load image
         run: |
-          podman load --input /tmp/${{ env.ARTIFACT_NAME }}.tar
+          docker load --input /tmp/${{ env.ARTIFACT_NAME }}.tar
 
       - name: Install trivy
         run: |
