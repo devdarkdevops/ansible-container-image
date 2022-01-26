@@ -2,7 +2,7 @@ name: Docker Image CI
 on: [push]
 
 env:
-  TAG_NAME: latest
+  TAG_NAME: alpine3.15.0-py3.9-ansible5.1.0
   IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/ansible
   ARTIFACT_NAME: ansible-container-image
   TRIVY_VERSION: 0.22.0

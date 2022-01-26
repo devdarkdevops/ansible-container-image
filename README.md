@@ -15,8 +15,4 @@ The following Ansible Docker images are as small as possible and only contain An
 
 | Docker tag                        | Ubuntu from   | Python from | Build from                          |
 | --------------------------------- | ------------- | ----------- | ----------------------------------- |
-| `latest`                          | Alpine 3.15.0 | Python 3.9  | Latest stable Ansible version       |
-| `ubuntu20.04-py3.9-ansible5.2.0`  | Ubuntu 20.04  | Python 3.9  | Latest stable Ansible 5.2.0 version |
-| `alpine3.15.0-py3.9-ansible5.2.0` | Alpine 3.15.0 | Python 3.9  | Latest stable Ansible 5.2.0 version |
-| `ubuntu20.04-py3.9-ansible5.1.0`  | Ubuntu 20.04  | Python 3.9  | Latest stable Ansible 5.1.0 version |
 | `alpine3.15.0-py3.9-ansible5.1.0` | Alpine 3.15.0 | Python 3.9  | Latest stable Ansible 5.1.0 version |
