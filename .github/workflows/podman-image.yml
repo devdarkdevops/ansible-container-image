@@ -74,7 +74,7 @@ jobs:
 
       - name: Load image
         run: |
-          podman load --input /tmp/${{ env.ARTIFACT_NAME }}.tar
+          docker load --input /tmp/${{ env.ARTIFACT_NAME }}.tar
 
       - name: Install trivy
         run: |
